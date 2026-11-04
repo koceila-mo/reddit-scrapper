@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/
+*.db
+*.db-journal
+*.log
+posts.jsonl
