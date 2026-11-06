@@ -25,6 +25,7 @@ class BrowserClient:
         self._page.goto(url, wait_until="domcontentloaded")
         self._page.wait_for_selector("shreddit-post", timeout=10000)
         self._page.wait_for_timeout(500)
+        BrowserLogger.info(f"Loaded page: {url}, fetching posts from feed..")
         
         self._anti_page_block(url)
 
@@ -87,6 +88,8 @@ class BrowserClient:
         self._page.goto(url, wait_until="domcontentloaded")
         self._page.wait_for_selector(selector, timeout=10000)
         self._page.wait_for_timeout(500)
+
+        BrowserLogger.info(f"loaded search page {url}, fetching posts..")
 
         self._anti_page_block(url)
 
