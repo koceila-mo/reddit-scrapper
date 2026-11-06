@@ -78,6 +78,8 @@ class SqliteStorage:
                 text TEXT,
                 author TEXT,
                 upvotes INTEGER,
+                depth INTEGER,
+                parent_id TEXT,
                 created TEXT
             );
         """)
@@ -90,14 +92,7 @@ class SqliteStorage:
                 """
                 INSERT INTO posts (id, title, url, author, created, comments_count, upvotes, upvote_ratio)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    title = excluded.title,
-                    url = excluded.url,
-                    author = excluded.author,
-                    created = excluded.created,
-                    comments_count = excluded.comments_count,
-                    upvotes = excluded.upvotes,
-                    upvote_ratio = excluded.upvote_ratio
+                ON CONFLICT(id) DO NOTHING
                 """,
                 (p.id, p.title, p.url, p.author, p.created,
                 p.comments_count, p.upvotes, p.upvote_ratio),
@@ -105,28 +100,38 @@ class SqliteStorage:
         self.conn.commit()
         SqliteStorageLogger.info(f"Saved/updated {len(posts)} posts to the database")
 
-    #takes the new post, uses its id to find it and update its content
+    #takes the new post, uses its id to find it and update its content and refreshes its comments
     def save_post_details(self, post: Post):
         self.conn.execute(
-            "UPDATE posts SET content = ? WHERE id = ?",
-            (post.content, post.id),
+            """
+            UPDATE posts SET title = ?, url = ?, author = ?, created = ?, comments_count = ?,
+            upvotes = ?, upvote_ratio = ?, content = ? 
+            WHERE id = ?
+            """,
+            (post.title, post.url, post.author, post.created, post.comments_count, 
+            post.upvotes, post.upvote_ratio, post.content, post.id)
         )
 
         for c in post.comments:
             self.conn.execute(
                 """
-                INSERT INTO comments (id, post_id, text, author, upvotes, created)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO comments (id, post_id, text, author, upvotes, depth, parent_id, created)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     text = excluded.text,
-                    upvotes = excluded.upvotes
+                    author = excluded.author,
+                    upvotes = excluded.upvotes,
+                    depth = excluded.depth,
+                    parent_id = excluded.parent_id,
+                    created = excluded.created
                 """,
-                (c.id, c.post_id, c.text, c.author, c.upvotes, c.created),
+                (c.id, c.post_id, c.text, c.author, c.upvotes, c.depth, c.parent_id, c.created),
             )
         self.conn.commit()
         SqliteStorageLogger.info(f"Saved/updated content and {len(post.comments)} comments for post ID: {post.id}")
 
-    def get_unfetched_posts(self, limit: int = 50) -> list[Post]:
+    #returns the posts with no content from the database
+    def get_unfetched_posts(self,limit: int) -> list[Post]:
         rows = self.conn.execute(
             """
             SELECT id, title, url, author, created, comments_count, upvotes, upvote_ratio
@@ -151,10 +156,11 @@ class SqliteStorage:
             ))
         return posts
     
+    #returns the comments for a specific post
     def get_comments_for_post(self, post_id: str) -> list[Comment]:
         rows = self.conn.execute(
             """
-            SELECT id, post_id, text, author, upvotes, created
+            SELECT id, post_id, text, author, upvotes,depth, parent_id, created
             FROM comments
             WHERE post_id = ?
             """,
@@ -169,7 +175,9 @@ class SqliteStorage:
                 text=row[2],
                 author=row[3],
                 upvotes=row[4],
-                created=row[5],
+                depth=row[5],
+                parent_id=row[6],
+                created=row[7],
             ))
         return comments
 

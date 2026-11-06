@@ -1,12 +1,10 @@
 import logging
-
 from browser import BrowserClient
 from storage import SqliteStorage
-from scraper import scrape_feed, scrape_details
+from scraper import scrape_feed, scrape_details, scrape_search
 
-SUBREDDIT_URL = "https://www.reddit.com/r/python"
-DB_PATH = "Python.db"
-FEED_LIMIT = 20
+DB_PATH = "data.db"
+FEED_LIMIT = 1000
 DETAILS_LIMIT = 10000
 
 logging.basicConfig(
@@ -15,17 +13,21 @@ logging.basicConfig(
     filemode="w",
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger("__script__")
+script_logger = logging.getLogger("__script__")
 
 
 def main():
     browser = BrowserClient(headless=False)
     store = SqliteStorage(DB_PATH)
+    print("Scraping started")
     try:
-        scrape_feed(browser, store, SUBREDDIT_URL, FEED_LIMIT)
+        
+        #scrape_feed(browser, store, "python", "new", "all", FEED_LIMIT)
+        scrape_search(browser, store, "python", "scraping", "relevance", "all")
         scrape_details(browser, store, DETAILS_LIMIT)
+
     except Exception:
-        logger.critical("Scraping failed")
+        script_logger.critical("Scraping failed")
         raise
     finally:
         store.close()

@@ -4,29 +4,9 @@ from models import Comment
 
 
 
-def parse_posts(html: str) -> list[Post]:
-    soup = BeautifulSoup(html, 'html.parser')
-    posts = []
 
-    for post in soup.find_all("shreddit-post"):
-        post_id = post.get('id', '')
-        if not post_id:
-            continue
 
-        posts.append(Post(
-            post_id,
-            post.get('post-title', ''),
-            f"https://reddit.com{post.get('permalink', '')}",
-            post.get('author', ''),
-            post.get('created-timestamp', ''),
-            int(post.get('comment-count', 0)),
-            int(post.get('score', 0)),
-            float(post.get('upvote-ratio', 0))
-        ))
-
-    return posts
-
-def parse_content_and_comments(html: str) -> tuple[str, list[Comment]]:
+def parse_content_and_comments(html: str) -> Post:
 
     soup = BeautifulSoup(html, 'html.parser')
         
@@ -35,9 +15,11 @@ def parse_content_and_comments(html: str) -> tuple[str, list[Comment]]:
     body = soup.find("div", attrs={"property": "schema:articleBody"})
     content = body.get_text("\n", strip=True) if body else ""
 
+
+
     # Extracting the comments
     comments = []
-    for comment in soup.find_all("shreddit-comment", attrs={"depth": "0"}):
+    for comment in soup.find_all("shreddit-comment"):
 
         #get the text of the comment
         cid = comment.get('thingid', '')
@@ -50,11 +32,29 @@ def parse_content_and_comments(html: str) -> tuple[str, list[Comment]]:
             post_id=pid,
             author=comment.get('author', ''),
             upvotes=int(comment.get('score', 0)),
+            depth=int(comment.get('depth', 0)),
+            parent_id=comment.get('parentid', ''),
             created=comment.get('created', ''),
             text=text
         ))
 
-    return content, comments
+
+    post = soup.find("shreddit-post")
+
+    return (Post(
+        post.get('id', ''),
+        post.get('post-title', ''),
+        f"https://reddit.com{post.get('permalink', '')}",
+        post.get('author', ''),
+        post.get('created-timestamp', ''),
+        int(post.get('comment-count', 0)),
+        int(post.get('score', 0)),
+        float(post.get('upvote-ratio', 0)),
+        content,
+        comments
+    ))
+
+    
                                
 
 

@@ -6,3 +6,6 @@ __pycache__/
 *.db-journal
 *.log
 posts.jsonl
+test.py
+test.html
+.pytest_cache/
