@@ -9,3 +9,4 @@ posts.jsonl
 test.py
 test.html
 .pytest_cache/
+.env

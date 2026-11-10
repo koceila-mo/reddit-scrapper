@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 from playwright.sync_api import TimeoutError
 from models import Post
 import parsers, logging
+import time
 
 BrowserLogger = logging.getLogger("__BrowserClient__")
 
@@ -27,8 +28,6 @@ class BrowserClient:
         self._page.wait_for_timeout(500)
         BrowserLogger.info(f"Loaded page: {url}, fetching posts from feed..")
         
-        self._anti_page_block(url)
-
         posts: dict[str, Post] = {}   
         stale_count = 0
         max_stale = 30
@@ -82,25 +81,26 @@ class BrowserClient:
     def fetch_search_posts(self, subreddit: str, url: str) -> list[Post]:
         selector = 'search-telemetry-tracker[data-testid="search-sdui-post"]'
         self._page.goto("https://reddit.com/", wait_until="domcontentloaded")
-        self._page.wait_for_timeout(500)
+        self._page.wait_for_timeout(1000)
         self._page.goto(f"https://reddit.com/r/{subreddit}/", wait_until="domcontentloaded")
-        self._page.wait_for_timeout(500)
+        self._page.wait_for_timeout(1000)
         self._page.goto(url, wait_until="domcontentloaded")
         self._page.wait_for_selector(selector, timeout=10000)
         self._page.wait_for_timeout(500)
 
         BrowserLogger.info(f"loaded search page {url}, fetching posts..")
 
-        self._anti_page_block(url)
-
         # scroll until the number of posts deosnt grow anymore
         last_count = 0
         stale_count = 0
-        max_stale = 30
+        max_stale = 3
 
         while stale_count < max_stale:
-            self._page.mouse.wheel(0, 2000)
-            self._page.wait_for_timeout(100)
+            self._check_rate_limit(url)
+
+            print(stale_count)
+            self._page.mouse.wheel(0, 4000)
+            self._page.wait_for_timeout(3000)
 
             count = self._page.locator(selector).count()
             if count == last_count:
@@ -148,13 +148,11 @@ class BrowserClient:
     def fetch_post(self, post: Post) -> Post:
         BrowserLogger.info(f"fetch_post called for post ID: {post.id} with URL: {post.url}")
         self._page.goto(post.url, wait_until="domcontentloaded")
-        self._page.wait_for_selector("shreddit-post", timeout=10000)
-
-        self._anti_page_block(post.url)
+        self._page.wait_for_selector("shreddit-post", timeout=6000)
 
 
         #load target number of comments in the html
-        self._load_comments_to_html(target_comments=500)
+        self._load_comments_to_html(post.url, target_comments=500)
 
         BrowserLogger.info(f"Page loaded for URL: {post.url}")
 
@@ -166,6 +164,7 @@ class BrowserClient:
 
         return new_post
     
+    #unused
     def _anti_page_block(self, url, timeout: int = 5000, attempts: int = 3):
         for attempt in range(attempts):
             button = self._page.get_by_role("button", name="Get Started", exact=True).first
@@ -185,12 +184,35 @@ class BrowserClient:
         if self._page.get_by_role("button", name="Get Started", exact=True).first.is_visible():
             raise Exception("Page blocked")
 
-    def _load_comments_to_html(self, target_comments: int = 0):
+    def _check_rate_limit(self, url: str):
+
+        limit_banner = self._page.locator('faceplate-banner[appearance="error"]').first
+        if not limit_banner.is_visible():
+            return False
+        msg = limit_banner.get_attribute("msg")
+        if "rate limited" not in msg.lower():
+            return False
+        
+        seconds_to_wait = 0
+        for word in msg.split():
+            if word.isdigit():
+                seconds_to_wait = int(word)
+                
+        BrowserLogger.warning(f"Rate limited for {seconds_to_wait} seconds, waiting for timeout..")
+        time.sleep(seconds_to_wait + 5)
+        BrowserLogger.info(f"Rate limit over, reloading {url}")
+        
+        self._page.goto(url, wait_until="domcontentloaded")
+        self._page.wait_for_timeout(500)
+        return True
+
+    def _load_comments_to_html(self ,url, target_comments: int = 0):
         button = self._page.get_by_role("button", name="View more comments", exact=True).first
         comments = self._page.locator("shreddit-comment")
 
         misses = 0
         while comments.count() < target_comments and misses < 2:
+            self._check_rate_limit(url)
             old_count = comments.count()
 
             if button.is_visible():
