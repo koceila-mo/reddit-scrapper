@@ -13,10 +13,8 @@ def scrape_feed(browser: BrowserClient, store: SqliteStorage, subreddits: list[s
     total_posts = 0
     for subreddit in subreddits:
         for sort in sorts:
-            for period in periods:
-                if sort == "top" and period != "all":
-                    continue
-                
+            for period in (periods if sort == "top" else ["all"]):
+
                 url = f"https://reddit.com/r/{subreddit}/{sort}/?t={period}"
 
                 try:
