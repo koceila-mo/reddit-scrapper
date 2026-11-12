@@ -9,7 +9,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("log.log", mode="a"),
+        logging.FileHandler("/data/log.log", mode="a"),
     ],
 )
 script_logger = logging.getLogger("__script__")
