@@ -18,26 +18,17 @@ def init_parser():
     parser = argparse.ArgumentParser( prog="main.py", description="Reddit scraper")
 
     #global
-    parser.add_argument(
-        "--db",
-        default=os.environ.get("DB_PATH", "data/Data.db"),
-        help="Path to the database file",
-    )
-
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run the browser in headless mode, must set when running in docker",
-    )
+    parser.add_argument("--db", default=os.environ.get("DB_PATH", "data/Data.db"), help="Path to the database file",)
+    parser.add_argument("--headless", action="store_true", help="Run the browser in headless mode, must set when running in docker",)
 
     
     #subcommends
     subcommands = parser.add_subparsers(dest="command", required=True)
     
     feed = subcommands.add_parser("feed", help="Scrape a subreddit feed")
-    feed.add_argument("subreddit", help="Subreddit to scrape",)
-    feed.add_argument("--sort", default="new", choices=["new", "hot", "top", "rising"],)
-    feed.add_argument("--period", default="all", choices=["hour", "day", "week", "month", "year", "all"],)
+    feed.add_argument("subreddit", nargs="+", help="Subreddit to scrape",)
+    feed.add_argument("--sort", nargs="+", default=["new"], choices=["new", "hot", "top", "rising"],)
+    feed.add_argument("--period", nargs="+", default=["all"], choices=["hour", "day", "week", "month", "year", "all"],)
     feed.add_argument("--limit", type=int, default=1000)
 
     search = subcommands.add_parser("search", help="scrape a subreddit search")
@@ -49,14 +40,13 @@ def init_parser():
     details = subcommands.add_parser("details", help="fetch content and comments for stored posts")
     details.add_argument("--limit", type=int, default=100)
 
-    return parser    
+    return parser
 
 
 
 def main():
     args = init_parser().parse_args()
     
-
     browser = BrowserClient(headless=args.headless)
     store = SqliteStorage(args.db)
     script_logger.info(f"Scraping started: {args.command}")

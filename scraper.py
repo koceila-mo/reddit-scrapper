@@ -8,20 +8,33 @@ from playwright._impl._errors import TargetClosedError
 
 scraper_logger = logging.getLogger("__Scraper__")
 
-def scrape_feed(browser: BrowserClient, store: SqliteStorage, subreddit: str, sort: str = "new", period: str = "all", max_posts: int = 1500) -> int:
-    url = f"https://reddit.com/r/{subreddit}/{sort}/?t={period}"
-    try:
-        posts = browser.fetch_posts(url, max_posts)
-    except TimeoutError:
-        scraper_logger.error(f"Timeout while scraping feed: {url}")
-        return 0
-    except PlaywrightError as e:
-        scraper_logger.error(f"Playwright error while scraping feed: {url} error: {e}")
-        return 0
+def scrape_feed(browser: BrowserClient, store: SqliteStorage, subreddits: list[str], sorts: list[str], periods: list[str]  , max_posts: int = 1500) -> int:
     
-    store.save_posts(posts)
-    scraper_logger.info(f"Scraped {len(posts)} posts from {url}")
-    return len(posts)
+    total_posts = 0
+    for subreddit in subreddits:
+        for sort in sorts:
+            for period in periods:
+                if sort == "top" and period != "all":
+                    continue
+                
+                url = f"https://reddit.com/r/{subreddit}/{sort}/?t={period}"
+
+                try:
+                    posts = browser.fetch_posts(url, max_posts)
+                except TimeoutError:
+                    scraper_logger.error(f"Timeout while scraping feed: {url}")
+                    continue
+                except PlaywrightError as e:
+                    scraper_logger.error(f"Playwright error while scraping feed: {url} error: {e}")
+                    continue
+            
+                scraper_logger.info(f"Scraped {len(posts)} posts from {url}")
+                store.save_posts(posts)
+                total_posts = total_posts + len(posts)
+                time.sleep(3)
+
+    scraper_logger.info(f"Feed run finished: {total_posts} posts from {subreddits}")
+    return total_posts
     
 def scrape_search(browser: BrowserClient, store: SqliteStorage, subreddit: str, search: str, sort: str = "relevance", period: str = "all") -> int:
     url = f"https://reddit.com/r/{subreddit}/search/?q={search}&sort={sort}&t={period}"

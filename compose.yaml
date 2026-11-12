@@ -1,11 +1,11 @@
 services:
-  scraper:                      # a name for this container setup
-    build: .                    # build from the Dockerfile in this folder
-    image: reddit-scraper       # name for the built image
-    init: true                  # cleans up leftover browser processes
-    ipc: host                   # gives Chromium enough shared memory
+  scraper: 
+    build: . 
+    image: reddit-scraper
+    init: true
+    ipc: host
     environment:
-      DB_PATH: /data/Data.db    # sets the variable inside the box
+      DB_PATH: /data/Data.db 
     volumes:
-      - ./data:/data            # connect my ./data folder to /data in the box
-    restart: "no"               # don't auto-restart when the job finishes
+      - ./data:/data
+    restart: "no"
